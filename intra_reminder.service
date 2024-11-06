@@ -1,0 +1,12 @@
+[Unit]
+Description=Intranet Ntfyer
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/docker run --rm -v /opt/intra_ntfy/:/data/ intra_ntfy
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

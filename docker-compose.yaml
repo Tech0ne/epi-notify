@@ -1,0 +1,89 @@
+services:
+  ntfy:
+    env_file:
+      - ./.env
+    image: binwiederhier/ntfy
+    container_name: ntfy
+    environment:
+      - NTFY_SERVER=0.0.0.0:80
+      - NTFY_DEBUG=false
+    volumes:
+      - ntfy_che:/var/cache/ntfy
+      - ntfy_cfg:/etc/ntfy
+    networks:
+      backend:
+        ipv4_address: ${NTFY_HOST}
+
+  notifier:
+    env_file:
+      - ./.env
+    build: ./notifier/
+    container_name: notifier
+    environment:
+      - name=value
+    networks:
+      backend:
+        ipv4_address: ${NOTIFIER_HOST}
+
+  hook:
+    env_file:
+      - ./.env
+    build: ./hooks/
+    container_name: hook
+    environment:
+      - BASE_URL=https://${NGROK_URL}/hooks/
+    networks:
+      backend:
+        ipv4_address: ${HOOK_HOST}
+
+  discord-bot:
+    env_file:
+      - ./.env
+    build: ./discord/
+    container_name: discord-bot
+    environment:
+      - BOT_TOKEN=${DISCORD_BOT_TOKEN}
+    networks:
+      backend:
+        ipv4_address: ${BOT_HOST}
+
+  nginx:
+    env_file:
+      - ./.env
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      backend:
+        ipv4_address: ${NGINX_HOST}
+    depends_on:
+      - ntfy
+      - hook
+
+  ngrok:
+    env_file:
+      - ./.env
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    command:
+      - "http"
+      - "--url=${NGROK_URL}"
+      - "http://${NGINX_HOST}:80"
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    networks:
+      backend:
+        ipv4_address: ${NGROK_HOST}
+    depends_on:
+      - nginx
+    ports:
+      - 80:4040
+
+networks:
+  backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${NETWORK_SUBNET}
+          gateway: ${NETWORK_GATEWAY}
