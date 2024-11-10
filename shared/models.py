@@ -1,0 +1,102 @@
+from sqlalchemy import Column, Integer, String, Enum, ForeignKey, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+from datetime import datetime, timedelta
+from db import engine
+import enum
+
+Base = declarative_base()
+
+class Method(enum.Enum):
+    GET             = 0
+    HEAD            = 1
+    POST            = 2
+    PUT             = 3
+    DELETE          = 4
+    CONNECT         = 5
+    OPTIONS         = 6
+    TRACE           = 7
+    PATCH           = 8
+
+    def from_str(self, method: str):
+        methods = {
+            Method.GET: [
+                "get", "g"
+            ],
+            Method.HEAD: [
+                "head", "hea", "h"
+            ],
+            Method.POST: [
+                "post", "pst", "p"
+            ],
+            Method.PUT: [
+                "put", "s"
+            ],
+            Method.DELETE: [
+                "delete", "del", "d"
+            ],
+            Method.CONNECT: [
+                "connect", "con", "c"
+            ],
+            Method.OPTIONS: [
+                "options", "opt", "o"
+            ],
+            Method.TRACE: [
+                "trace", "trc", "t"
+            ],
+            Method.PATCH: [
+                "patch", "pac", "f"
+            ]
+        }
+
+        for k, v in methods.items():
+            if method.lower() in v:
+                return k
+        return None
+
+    def to_str(self):
+        return (
+            "GET",
+            "HEAD",
+            "POST",
+            "PUT",
+            "DELETE",
+            "CONNECT",
+            "OPTIONS",
+            "TRACE",
+            "PATCH"
+        )[self.value]
+
+class User(Base):
+    __tablename__   = "users"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    token           = Column(String(256))
+    hooks           = relationship("Hook", back_populates="user")
+
+    def __repr__(self):
+        return f"<User(id={self.id}, nb_hooks={len(self.hooks)})>"
+
+class Hook(Base):
+    __tablename__   = "hooks"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    short_url       = Column(String(32), unique=True, nullable=False)
+    method          = Column(Enum(Method))
+    url             = Column(String(256), nullable=False)
+    body            = Column(String(1024), nullable=False)
+
+    user_id         = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user            = relationship("User", back_populates="hooks")
+
+    expires_at      = Column(DateTime, default=lambda: datetime.now() + timedelta(days=1))
+
+    def __repr__(self):
+        return f"<Hook(id={self.id}, path={self.short_url}, url={self.url}, expire_at={self.expires_at})>"
+
+class Event(Base):
+    __tablename__   = "events"
+
+    # id              = 
+
+Base.metadata.create_all(engine)

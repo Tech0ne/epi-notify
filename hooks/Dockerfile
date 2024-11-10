@@ -8,11 +8,17 @@ RUN apt-get upgrade -y
 RUN apt-get install -y python3
 RUN apt-get install -y python3-pip
 
-COPY ./requirements.txt /app/requirements.txt
+COPY ./hooks/requirements.txt /app/requirements.txt
 
 RUN pip3 install -r /app/requirements.txt
 
-COPY ./login.py /app/login.py
-COPY ./main.py /app/main.py
+COPY ./shared/db.py /app/db.py
+COPY ./shared/models.py /app/models.py
+
+COPY ./hooks/remove_expired_links.py /app/remove_expired_links.py
+
+COPY ./hooks/login.py /app/login.py
+
+COPY ./hooks/main.py /app/main.py
 
 CMD [ "python3", "/app/main.py" ]

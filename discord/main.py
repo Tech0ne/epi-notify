@@ -1,41 +1,23 @@
-import discord
-from discord.ext import commands
-from enum import Enum
-import os
+from threading import Thread
 
-class Status(Enum):
-    OK = 0
-    KO = 1
-    NA = 2
+import server
+import bot
 
-STATUS = Status.OK
+import sys
 
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+RUN_BOT_FIRST = True
 
-bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
+def main():
+    asnc_thread = bot.run if RUN_BOT_FIRST else server.run
+    main_thread = server.run if RUN_BOT_FIRST else bot.run
 
-async def set_bot_presence():
-    await bot.change_presence(
-        status=(discord.Status.online, discord.Status.dnd, discord.Status.idle)[STATUS.value],
-        activity=discord.Activity(
-            type=discord.ActivityType.playing,
-            name="Handeling EPITECH Intranet Events",
-            state=("Online and running", "Failed to access ressources", "Online but not working properly")[STATUS.value],
-        )
-    )
+    Thread(target=asnc_thread, daemon=True).start()
 
-@bot.event
-async def on_ready():
-    await set_bot_presence()
-    print(f"Logged in as {bot.user.name} ({bot.user.id})")
+    try:
+        main_thread()
+    except Exception as e:
+        print(f"Cought {e} while running main thread")
+    return 0
 
-@bot.command()
-async def login(ctx, api_key: str):
-    if ctx.guild is None:
-        await ctx.send("Login token saved. Thank you !\nEvents will be sent to you here.")
-        print(f"Received API key from {ctx.author}: {api_key}")
-    else:
-        await ctx.message.delete()
-        await ctx.author.send("Please use this command here in order to register your account.")
-
-bot.run(TOKEN)
+if __name__ == "__main__":
+    sys.exit(main())

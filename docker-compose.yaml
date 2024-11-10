@@ -1,55 +1,96 @@
 services:
+  db:
+    image: mysql:9.1.0
+    container_name: db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    restart: unless-stopped
+    volumes:
+      - ./data/db/:/var/lib/mysql/
+    networks:
+      layer-charlie:
+        ipv4_address: ${LAYER_CHARLIE_DB_HOST}
+
+  hook:
+    build:
+      context: ./
+      dockerfile: ./hooks/Dockerfile
+    container_name: hook
+    environment:
+      - DB_URL=mysql+mysqlconnector://root:${DB_ROOT_PASSWORD}@${LAYER_CHARLIE_DB_HOST}/${DB_NAME}
+    restart: unless-stopped
+    depends_on:
+      - db
+    networks:
+      layer-charlie:
+        ipv4_address: ${LAYER_CHARLIE_HOOK_HOST}
+      layer-bravo:
+        ipv4_address: ${LAYER_BRAVO_HOOK_HOST}
+
+  bot:
+    build:
+      context: ./
+      dockerfile: ./discord/Dockerfile
+    container_name: bot
+    environment:
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - DB_URL=mysql+mysqlconnector://root:${DB_ROOT_PASSWORD}@${LAYER_CHARLIE_DB_HOST}/${DB_NAME}
+    restart: unless-stopped
+    depends_on:
+      - db
+      - hook
+    networks:
+      layer-charlie:
+        ipv4_address: ${LAYER_CHARLIE_DISCORD_HOST}
+
   ntfy:
     image: binwiederhier/ntfy
     container_name: ntfy
+    command:
+      - serve
     environment:
       - NTFY_SERVER=0.0.0.0:80
       - NTFY_DEBUG=false
+    restart: unless-stopped
     volumes:
       - ./data/ntfy/che/:/var/cache/ntfy/
       - ./data/ntfy/cfg/:/etc/ntfy
     networks:
-      backend:
-        ipv4_address: ${NTFY_HOST}
+      layer-bravo:
+        ipv4_address: ${LAYER_BRAVO_NTFY_HOST}
 
   notifier:
-    build: ./notifier/
+    build:
+      context: ./
+      dockerfile: ./notifier/Dockerfile
     container_name: notifier
-    volumes:
-      - ./data/db/:/data/
-    networks:
-      backend:
-        ipv4_address: ${NOTIFIER_HOST}
-
-  hook:
-    build: ./hooks/
-    container_name: hook
-    networks:
-      backend:
-        ipv4_address: ${HOOK_HOST}
-
-  discord-bot:
-    build: ./discord/
-    container_name: discord-bot
-    volumes:
-      - ./data/db/:/data/
     environment:
-      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - DISCORD_BOT_SERVER=http://bot/
+      - DB_URL=mysql+mysqlconnector://root:${DB_ROOT_PASSWORD}@db/${DB_NAME}
+    restart: unless-stopped
+    depends_on:
+      - db
+      - hook
+      - bot
+      - ntfy
     networks:
-      backend:
-        ipv4_address: ${BOT_HOST}
+      layer-charlie:
+        ipv4_address: ${LAYER_CHARLIE_NOTIFIER_HOST}
 
   nginx:
     image: nginx:latest
     container_name: nginx
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
-    networks:
-      backend:
-        ipv4_address: ${NGINX_HOST}
     depends_on:
       - ntfy
       - hook
+    networks:
+      layer-bravo:
+        ipv4_address: ${LAYER_BRAVO_NGINX_HOST}
+      layer-alpha:
+        ipv4_address: ${LAYER_ALPHA_NGINX_HOST}
 
   ngrok:
     image: ngrok/ngrok:latest
@@ -57,21 +98,31 @@ services:
     command:
       - "http"
       - "--url=${NGROK_URL}"
-      - "http://${NGINX_HOST}:80"
+      - "http://nginx:80"
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    networks:
-      backend:
-        ipv4_address: ${NGROK_HOST}
     depends_on:
       - nginx
-    ports:
-      - 80:4040
+    networks:
+      layer-alpha:
+        ipv4_address: ${LAYER_ALPHA_NGROK_HOST}
 
 networks:
-  backend:
+  layer-alpha:
     driver: bridge
     ipam:
       config:
-        - subnet: ${NETWORK_SUBNET}
-          gateway: ${NETWORK_GATEWAY}
+        - subnet: ${LAYER_ALPHA_SUBNET}
+          gateway: ${LAYER_ALPHA_GATEWAY}
+  layer-bravo:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${LAYER_BRAVO_SUBNET}
+          gateway: ${LAYER_BRAVO_GATEWAY}
+  layer-charlie:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${LAYER_CHARLIE_SUBNET}
+          gateway: ${LAYER_CHARLIE_GATEWAY}

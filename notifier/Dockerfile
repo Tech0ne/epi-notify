@@ -8,14 +8,11 @@ RUN apt-get upgrade -y
 RUN apt-get install -y python3
 RUN apt-get install -y python3-pip
 
-COPY ./requirements.txt /app/requirements.txt
+COPY ./notifier/requirements.txt /app/requirements.txt
 
 RUN pip3 install -r /app/requirements.txt
 
-COPY ./login.py /app/login.py
-COPY ./main.py /app/main.py
-
-COPY ./add_user.py /usr/bin/add_user
-RUN chmod +x /usr/bin/add_user
+COPY ./notifier/login.py /app/login.py
+COPY ./notifier/main.py /app/main.py
 
 CMD [ "python3", "/app/main.py" ]

@@ -1,2 +1,4 @@
-flask
+flask[async]
+mysql-connector-python
+SQLAlchemy
 discord

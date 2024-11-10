@@ -42,16 +42,6 @@ import os
 USERS = []
 USERS_LOCK = Lock()
 
-def load_db():
-    global USERS
-    with USERS_LOCK:
-        USERS.clear()
-        USERS.extend(json.load(open("/data/db.json", 'r')))
-
-if not os.path.isfile("/data/db.json"):
-    print("Could not start without database", file=sys.stderr)
-    sys.exit(1)
-
 #endregion
 
 #region API
@@ -158,17 +148,20 @@ def dump_events(events: list[Event], path: str):
     json.dump(dump_events, open(path, 'w+'))
 
 def main() -> int:
-    global USERS, USERS_LOCK
-    signal.signal(signal.SIGIO, load_db)
-    fd = os.open("/data/db.json",  os.O_RDONLY)
-    fcntl.fcntl(fd, fcntl.F_SETSIG, 0)
-    fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MODIFY | fcntl.DN_CREATE | fcntl.DN_MULTISHOT)
-
-
-
-    week = retreive_target_week()
-    events = get_activities(session, *week)
+    #TODO: Implement the core logic for event retreiving and stuff
+    __import__("time").sleep(60000)
     return 0
+    # global USERS, USERS_LOCK
+    # signal.signal(signal.SIGIO, load_db)
+    # fd = os.open("/data/db.json",  os.O_RDONLY)
+    # fcntl.fcntl(fd, fcntl.F_SETSIG, 0)
+    # fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MODIFY | fcntl.DN_CREATE | fcntl.DN_MULTISHOT)
+
+
+
+    # week = retreive_target_week()
+    # # events = get_activities(session, *week)
+    # return 0
 
 if __name__ == "__main__":
     sys.exit(main())
