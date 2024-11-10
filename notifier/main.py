@@ -1,4 +1,4 @@
-from .login import login
+# from .login import login
 
 from threading import Lock
 import requests
@@ -87,8 +87,9 @@ def retreive_target_week():
 #endregion
 
 class User:
-    def __init__(self, id: str, token: str | None, discord_uid: ):
-        
+    def __init__(self, **infos):
+        for attr in ("id", ""):
+            setattr(self, attr, infos.get(attr))
 
 class Event:
 # {

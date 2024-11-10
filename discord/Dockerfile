@@ -12,7 +12,7 @@ COPY ./requirements.txt /app/requirements.txt
 
 RUN pip3 install -r /app/requirements.txt
 
-COPY ./login.py /app/login.py
 COPY ./main.py /app/main.py
+COPY ./analytics.py /app/analytics.py
 
 CMD [ "python3", "/app/main.py" ]

@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/docker run --rm -v /opt/intra_ntfy/:/data/ intra_ntfy
+ExecStart=/usr/bin/docker compose up
 Restart=always
 RestartSec=10
 
