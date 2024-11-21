@@ -4,6 +4,7 @@ from db import session
 from models import User
 
 import discord
+import sys
 import os
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -23,6 +24,17 @@ async def set_bot_presence():
         )
     )
 
+async def _send_dm(user_id: int, message: str):
+    global bot
+
+    user = bot.get_user(user_id)
+    print(user, file=sys.stderr)
+    await user.send(message)
+
+def send_dm(user_id: int, message: str):
+    global bot
+    bot.loop.create_task(_send_dm(user_id, message))
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name} ({bot.user.id})")
@@ -30,17 +42,9 @@ async def on_ready():
     await tree.sync()
 
 @tree.command(name="login", description="Register your token for a week")
-async def login(interaction: discord.Interaction, token: str):
-    # register_user(interaction.user, token)
-    await interaction.response.send_message("Token saved !\nYou will receive events in DM.", ephemeral=True)
-
-@tree.command(name="test")
-async def test(interaction: discord.Interaction, user_id: int):
-    print(f"Trying to find user {user_id} in DB")
-
-    user = session.query(User).filter_by(id=user_id).first()
-
-    await interaction.response.send_message(f"Found user {user}")
+async def login(ctx: discord.Interaction, token: str):
+    # register_user(ctx.user, token)
+    await ctx.response.send_message("Token saved !\nYou will receive events in DM.", ephemeral=True)
 
 def run():
     bot.run(TOKEN)

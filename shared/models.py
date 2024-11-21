@@ -97,6 +97,6 @@ class Hook(Base):
 class Event(Base):
     __tablename__   = "events"
 
-    # id              = 
+    id              = Column(Integer, primary_key=True, index=True)
 
 Base.metadata.create_all(engine)

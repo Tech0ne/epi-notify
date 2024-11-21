@@ -1,5 +1,5 @@
 from status import Status, set_status
-from bot import set_bot_presence
+from bot import set_bot_presence, send_dm
 
 from flask import Flask, request
 
@@ -16,6 +16,13 @@ async def set_bot_status(status: str):
         return "ko"
     set_status((Status.OK, Status.NA, Status.KO)[("ok", "na", "ko").index(status)])
     await set_bot_presence()
+    return "ok"
+
+@app.route("/send-event/<int:user_id>", methods=["POST"])
+def send_message(user_id: int):
+    message = request.json.get("message")
+
+    send_dm(user_id, message)
     return "ok"
 
 @app.route("/")
