@@ -36,6 +36,7 @@ services:
     environment:
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
       - DB_URL=mysql+mysqlconnector://root:${DB_ROOT_PASSWORD}@${LAYER_CHARLIE_DB_HOST}/${DB_NAME}
+      - NTFY_BASE_URL=${NGROK_URL}
     restart: unless-stopped
     depends_on:
       - db

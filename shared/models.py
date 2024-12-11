@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Enum, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Enum, ForeignKey, DateTime, BigInteger, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime, timedelta
@@ -18,7 +18,7 @@ class Method(enum.Enum):
     TRACE           = 7
     PATCH           = 8
 
-    def from_str(self, method: str):
+    def from_str(method: str):
         methods = {
             Method.GET: [
                 "get", "g"
@@ -70,24 +70,28 @@ class Method(enum.Enum):
 class User(Base):
     __tablename__   = "users"
 
-    id              = Column(Integer, primary_key=True, index=True)
-    token           = Column(String(256))
-    hooks           = relationship("Hook", back_populates="user")
+    id              = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    token           = Column(String(256), unique=True)
+    email           = Column(String(320), unique=True)
+    ntfy_url        = Column(String(32), unique=True)
+    discord_id      = Column(BigInteger, unique=True)
+    hooks           = relationship("Hook", back_populates="user", lazy="joined")
 
     def __repr__(self):
-        return f"<User(id={self.id}, nb_hooks={len(self.hooks)})>"
+        return f"<User(id={self.id}, token={self.token[:6]+'...' if type(self.token) == str else self.token}, ntfy={self.ntfy_url}, discord_id={self.discord_id}, nb_hooks={len(self.hooks)})>"
 
 class Hook(Base):
     __tablename__   = "hooks"
 
-    id              = Column(Integer, primary_key=True, index=True)
+    id              = Column(Integer, primary_key=True, index=True, autoincrement=True)
     short_url       = Column(String(32), unique=True, nullable=False)
     method          = Column(Enum(Method))
     url             = Column(String(256), nullable=False)
     body            = Column(String(1024), nullable=False)
+    is_redirect     = Column(Boolean, default=False)
 
     user_id         = Column(Integer, ForeignKey("users.id"), nullable=False)
-    user            = relationship("User", back_populates="hooks")
+    user            = relationship("User", back_populates="hooks", lazy="joined")
 
     expires_at      = Column(DateTime, default=lambda: datetime.now() + timedelta(days=1))
 

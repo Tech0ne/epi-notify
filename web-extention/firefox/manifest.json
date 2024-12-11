@@ -1,0 +1,15 @@
+{
+    "manifest_version": 3,
+    "name": "EpiNotify Handler",
+    "version": "1.0",
+    "description": "Login to the EpiNotify software",
+    "permissions": ["cookies", "webRequest", "webRequestBlocking", "storage"],
+    "host_permissions": ["*://intra.epitech.eu/*"],
+    "background": {
+        "scripts": ["retreive_token.js"]
+    },
+    "icons": {
+        "48": "icons/icon_48.png",
+        "96": "icons/icon_96.png"
+    }
+}
