@@ -112,6 +112,25 @@ def send_ntfy(user_id: int, data: dict):
     url = urljoin(NTFY_URL, user.ntfy_url)
     requests.post(url, data=json.dumps(data))
 
+def set_nylas(user, grants: str, api_key: str, author):
+    if user is None:
+        if author is not None:
+            user = session.query(User).filter_by(discord_id=author).first()
+        elif login is not None:
+            user = session.query(User).filter_by(email=login).first()
+
+    if user is None:
+        return False
+
+    try:
+        user.nylas_grant = grants
+        user.nylas_api_key = api_key
+        session.commit()
+    except:
+        session.rollback()
+        return False
+    return True
+
 def create_user_from_discord(discord_id: int):
     session.commit()
     user = session.query(User).filter_by(discord_id=discord_id).first()
@@ -157,6 +176,17 @@ async def login(ctx: discord.Interaction, token: str = None):
         await ctx.response.send_message("Failed to register token !\nPlease correct the syntax, and login again !")
         return
     await ctx.response.send_message("Token saved !\nYou will receive events in DM.", ephemeral=True)
+
+@tree.command(name="nylas", description="Link your Nylas account to your EpiNotify account")
+async def nylas(ctx: discord.Interaction, grants: str = None, api_key: str = None):
+    if grants is None or api_key is None:
+        await ctx.response.send_message("Please add your Nylas grant and API Key !!")
+        return
+    user = create_user_from_discord(ctx.user.id)
+    if not set_nylas(user, grants, api_key, ctx.user.id):
+        await ctx.response.send_message("Could not register Nylas account !")
+        return
+    await ctx.response.send_message("Nylas account saved successfully !")
 
 def run():
     bot.run(TOKEN)

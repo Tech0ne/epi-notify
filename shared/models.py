@@ -74,6 +74,8 @@ class User(Base):
     token           = Column(String(256), unique=True)
     email           = Column(String(320), unique=True)
     ntfy_url        = Column(String(32), unique=True)
+    nylas_grant     = Column(String(36), unique=True)
+    nylas_api_key   = Column(String(128), unique=True)
     discord_id      = Column(BigInteger, unique=True)
     # hooks           = relationship("Hook", back_populates="user", lazy="joined")
 

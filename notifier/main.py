@@ -19,8 +19,7 @@ import json
 import sys
 import os
 
-# SLEEP_TIME = 60 * 30
-SLEEP_TIME = 60 * 1
+SLEEP_TIME = 60 * 5
 
 current_events = {}
 registered_events = []
@@ -74,13 +73,14 @@ class Event:
 # }
 
     def __init__(self, user_id: int, ping_time: str, event: dict, message: str, register_action: dict = None):
+        self.name = f"{event.get('titlemodule')} | {event.get('acti_title')}"
         self.date = datetime.datetime.strptime(event.get("start"), "%Y-%m-%d %H:%M:%S") - datetime.timedelta(seconds=ping_time)
         self.user_id = user_id
         self.id = f"{event.get('codeevent')}-{round(self.date.timestamp())}-{user_id}"
         self.args = (self.user_id, {
             "message": "",
             "embed": {
-                "title": "EpiNotify - Intra notification",
+                "title": f"EpiNotify - {self.name}",
                 "description": message,
                 "color": 3452386,
                 "fields": [
@@ -141,7 +141,7 @@ def register_new_tasks(scheduler):
     session.commit()
     for user in session.query(User).filter(User.token != None).all():
         session.commit()
-        for event in retreive_all_events(user.id, user.token)[:1]:
+        for event in retreive_all_events(user.id, user.token):
             current_events.update({event.id: event})
             if not event.id in registered_events:
                 scheduler.add_job(
@@ -151,6 +151,15 @@ def register_new_tasks(scheduler):
                     id=event.id,
                 )
                 registered_events.append(event.id)
+                if user.nylas_grant is not None and user.nylas_api_key is not None:
+                    print(requests.post(f"https://api.us.nylas.com/v3/grants/{user.nylas_grant}/events?calendar_id=primary", json={
+                        "title": event.name, "when": {"start_time": int((event.date).timestamp()), "end_time": int((event.date + datetime.timedelta(hours=1)).timestamp())},
+                    },
+                    headers={
+                        "Authorization": f"Bearer {user.nylas_api_key}",
+                        "Content-Type": "application/json"
+                    }).content, file=sys.stderr)
+            time.sleep(1)
 
 def main() -> int:
     # Initial timeout: DB help + wait for bot to be good
