@@ -12,21 +12,25 @@ services:
       layer-charlie:
         ipv4_address: ${LAYER_CHARLIE_DB_HOST}
 
-  hook:
-    build:
-      context: ./
-      dockerfile: ./hooks/Dockerfile
-    container_name: hook
-    environment:
-      - DB_URL=mysql+mysqlconnector://root:${DB_ROOT_PASSWORD}@${LAYER_CHARLIE_DB_HOST}/${DB_NAME}
-    restart: unless-stopped
-    depends_on:
-      - db
-    networks:
-      layer-charlie:
-        ipv4_address: ${LAYER_CHARLIE_HOOK_HOST}
-      layer-bravo:
-        ipv4_address: ${LAYER_BRAVO_HOOK_HOST}
+  ###############
+  # Due to Ntfy being the goat, we don't really need the hooks (we could use them for discord, but eh, later (maybe))
+  ###############
+  #
+  # hook:
+  #   build:
+  #     context: ./
+  #     dockerfile: ./hooks/Dockerfile
+  #   container_name: hook
+  #   environment:
+  #     - DB_URL=mysql+mysqlconnector://root:${DB_ROOT_PASSWORD}@${LAYER_CHARLIE_DB_HOST}/${DB_NAME}
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - db
+  #   networks:
+  #     layer-charlie:
+  #       ipv4_address: ${LAYER_CHARLIE_HOOK_HOST}
+  #     layer-bravo:
+  #       ipv4_address: ${LAYER_BRAVO_HOOK_HOST}
 
   bot:
     build:
@@ -40,7 +44,7 @@ services:
     restart: unless-stopped
     depends_on:
       - db
-      - hook
+      # - hook
     networks:
       layer-charlie:
         ipv4_address: ${LAYER_CHARLIE_DISCORD_HOST}
@@ -72,7 +76,7 @@ services:
     restart: unless-stopped
     depends_on:
       - db
-      - hook
+      # - hook
       - bot
       - ntfy
     networks:
@@ -86,7 +90,7 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - ntfy
-      - hook
+      # - hook
     networks:
       layer-bravo:
         ipv4_address: ${LAYER_BRAVO_NGINX_HOST}

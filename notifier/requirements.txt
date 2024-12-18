@@ -1,2 +1,5 @@
-requests
+apscheduler
 beautifulsoup4
+mysql-connector-python
+requests
+SQLAlchemy

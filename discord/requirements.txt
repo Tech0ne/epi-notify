@@ -1,5 +1,6 @@
+discord
 flask[async]
 mysql-connector-python
-SQLAlchemy
-discord
 pyjwt
+requests
+SQLAlchemy

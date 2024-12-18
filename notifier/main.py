@@ -1,85 +1,29 @@
 # from .login import login
 
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.date import DateTrigger
 from threading import Lock
+
+from models import User, Method #, Hook
+from db import session
+
+from login import login
+
 import requests
 import datetime
 import asyncio
 import signal
 import fcntl
+import time
 import json
 import sys
 import os
 
-#region db
+# SLEEP_TIME = 60 * 30
+SLEEP_TIME = 60 * 1
 
-# User format:
-# {
-#   "id": "name.surname@epitech.eu",
-#   "token": "[intra.epitech.eu token]",
-#   "discord_uid": "[discord UID]" | None,
-#   "ntfy_uri": "[Ntfy path]" | None,
-#   "off_time": ([start_time], [end_time]), # Defines the time of day where notifications should be avoided. Is overwrote by max level notifications. Is defined like so: XX:XX (hour in the day)
-#   "rules": {
-#       "event": [
-#           [RULE FORMAT]
-#       ],
-#       "rdv:unregistered": [
-#           [RULE FORMAT]
-#       ],
-#       "rdv:registered": [
-#           [RULE FORMAT] | "event"
-#       ]
-#   }
-# }
-
-# Rule format:
-# {
-#   "id": "[sample rule ID (like "ping_1_hour_before")]",
-#   "user_id": "name.surname@epitech.eu",
-#   "time": "[Time formating: XXj-XXh-XXm]"
-# }
-
-USERS = []
-USERS_LOCK = Lock()
-
-#endregion
-
-#region API
-
-def get_activities(session: requests.Session, week_start: str, week_end: str):
-    events_request = session.get(f"https://intra.epitech.eu/planning/load?format=json&start={week_start}&end={week_end}")
-    if events_request.status_code != 200:
-        raise ValueError(f"Got status code {events_request.status_code}")
-    return [Event(event) for event in events_request.json()]
-
-# /module/2024/G-GPR-000/NCE-0-1/acti-655496/rdv/?format=json
-
-def get_rdv(session: requests.Session, ):
-    pass
-
-#endregion
-
-#region utils
-
-def retreive_target_week():
-    today = datetime.datetime.today()
-    weekday = today.weekday()
-
-    target_date = None
-
-    if weekday in (5, 6):
-        target_date = today + datetime.timedelta(days=7 - weekday)
-    else:
-        target_date = today - datetime.timedelta(days=weekday)
-
-    return (target_date.strftime("%Y-%m-%d"), (target_date + datetime.timedelta(days=7)).strftime("%Y-%m-%d"))
-
-#endregion
-
-class User:
-    def __init__(self, **infos):
-        for attr in ("id", ""):
-            setattr(self, attr, infos.get(attr))
+current_events = {}
+registered_events = []
 
 class Event:
 # {
@@ -129,39 +73,98 @@ class Event:
 #   'in_more_than_one_month': False
 # }
 
-    def __init__(self, event: dict):
+    def __init__(self, user_id: int, ping_time: str, event: dict, message: str, register_action: dict = None):
+        self.date = datetime.datetime.strptime(event.get("start"), "%Y-%m-%d %H:%M:%S") - datetime.timedelta(seconds=ping_time)
+        self.user_id = user_id
+        self.id = f"{event.get('codeevent')}-{round(self.date.timestamp())}-{user_id}"
+        self.args = (self.user_id, {
+            "message": "",
+            "embed": {
+                "title": "EpiNotify - Intra notification",
+                "description": message,
+                "color": 3452386,
+                "fields": [
+                    {
+                        "name": "Intranet reminder",
+                        "value": "You got an intranet event !",
+                    }
+                ]
+            },
+            "ntfy": {
+                "message": message,
+            }
+        })
         self.is_rdv = bool(event.get("is_rdv"))
+        #             \/  : Doesn't support rdv events as of rn. This is bcause it's fkin anoying to manage
+        if not self.is_rdv and register_action is not None:
+            self.args[1]["ntfy"]["actions"] = [register_action]
 
-    def dump(self):
-        return None
+def ping_back(user_id: int, message: dict):
+    req = requests.post(f"http://bot/send-event/{user_id}", json=message).content
 
-    def load(data):
-        return Event()
+def get_register_url(event):
+    #                                                                                Sry bout that  \/
+    return f"https://intra.epitech.eu/module/{event.get('scolaryear')}/{event.get('codemodule')}/NCE-5-1/{event.get('codeacti')}/{event.get('codeevent')}/register?format=json"
 
-def load_events(path: str):
-    events = json.load(open(path, 'r'))
-    events = [Event.load(event) for event in events]
-    return events
+def retreive_all_events(user_id: int, token: str):
+    s = login(token)
 
-def dump_events(events: list[Event], path: str):
-    dump_events = [event.dump() for event in events]
-    json.dump(dump_events, open(path, 'w+'))
+    today = datetime.date.today()
+    weekday = today.weekday()
+    st = (today + datetime.timedelta(days=7 - weekday)) if weekday in (5, 6) else today - datetime.timedelta(days=weekday)
+    nd = st + datetime.timedelta(days=7)
+    events = s.get(f"https://intra.epitech.eu/planning/load?format=json&start={st}&end={nd}")
+    if events.status_code != 200:
+        print(f"[ERROR] Got status code {events.status_code} while fetching the intranet !", file=sys.stderr)
+    all_events = []
+    for event in events.json():
+        # Add event 5 days before when not logged in
+        if not event.get("event_registered"):
+            all_events.append(Event(user_id, 3 * 24 * 60 * 60, event, "You are not registered to the intranet event !", {
+                "action": "http",
+                "label": "Register",
+                "url": get_register_url(event),
+                "method": "POST",
+                "headers": {
+                    "Cookie": '; '.join([f"{k}={v}" for k, v in s.cookies.items()])
+                }
+            }))
+        # Add event 1 day before
+        all_events.append(Event(user_id, 24 * 60 * 60, event, "You have an intranet event in 1 day !"))
+        # Add event 1 hour before
+        all_events.append(Event(user_id, 60 * 60, event, "You have an intranet event in 1 hour !"))
+        # Add event 10 minutes before
+        all_events.append(Event(user_id, 60 * 60, event, "You have an intranet event in 10 minutes !"))
+    return all_events
+
+def register_new_tasks(scheduler):
+    session.commit()
+    for user in session.query(User).filter(User.token != None).all():
+        session.commit()
+        for event in retreive_all_events(user.id, user.token)[:1]:
+            current_events.update({event.id: event})
+            if not event.id in registered_events:
+                scheduler.add_job(
+                    ping_back,
+                    trigger=DateTrigger(run_date=event.date),
+                    args=event.args,
+                    id=event.id,
+                )
+                registered_events.append(event.id)
 
 def main() -> int:
-    #TODO: Implement the core logic for event retreiving and stuff
-    __import__("time").sleep(60000)
+    # Initial timeout: DB help + wait for bot to be good
+    time.sleep(5)
+    scheduler = BackgroundScheduler()
+    scheduler.start()
+    try:
+        while True:
+            register_new_tasks(scheduler)
+            time.sleep(SLEEP_TIME)
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()
+        print("Scheduler stopped.", file=sys.stderr)
     return 0
-    # global USERS, USERS_LOCK
-    # signal.signal(signal.SIGIO, load_db)
-    # fd = os.open("/data/db.json",  os.O_RDONLY)
-    # fcntl.fcntl(fd, fcntl.F_SETSIG, 0)
-    # fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MODIFY | fcntl.DN_CREATE | fcntl.DN_MULTISHOT)
-
-
-
-    # week = retreive_target_week()
-    # # events = get_activities(session, *week)
-    # return 0
 
 if __name__ == "__main__":
     sys.exit(main())

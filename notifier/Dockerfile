@@ -12,6 +12,9 @@ COPY ./notifier/requirements.txt /app/requirements.txt
 
 RUN pip3 install -r /app/requirements.txt
 
+COPY ./shared/db.py /app/db.py
+COPY ./shared/models.py /app/models.py
+
 COPY ./notifier/login.py /app/login.py
 COPY ./notifier/main.py /app/main.py
 

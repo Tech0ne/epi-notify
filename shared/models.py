@@ -75,32 +75,32 @@ class User(Base):
     email           = Column(String(320), unique=True)
     ntfy_url        = Column(String(32), unique=True)
     discord_id      = Column(BigInteger, unique=True)
-    hooks           = relationship("Hook", back_populates="user", lazy="joined")
+    # hooks           = relationship("Hook", back_populates="user", lazy="joined")
 
     def __repr__(self):
-        return f"<User(id={self.id}, token={self.token[:6]+'...' if type(self.token) == str else self.token}, ntfy={self.ntfy_url}, discord_id={self.discord_id}, nb_hooks={len(self.hooks)})>"
+        return f"<User(id={self.id}, token={self.token[:6]+'...' if type(self.token) == str else self.token}, ntfy={self.ntfy_url}, discord_id={self.discord_id})>"
 
-class Hook(Base):
-    __tablename__   = "hooks"
+# class Hook(Base):
+#     __tablename__   = "hooks"
 
-    id              = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    short_url       = Column(String(32), unique=True, nullable=False)
-    method          = Column(Enum(Method))
-    url             = Column(String(256), nullable=False)
-    body            = Column(String(1024), nullable=False)
-    is_redirect     = Column(Boolean, default=False)
+#     id              = Column(Integer, primary_key=True, index=True, autoincrement=True)
+#     short_url       = Column(String(32), unique=True, nullable=False)
+#     method          = Column(Enum(Method))
+#     url             = Column(String(256), nullable=False)
+#     body            = Column(String(1024), nullable=False)
+#     is_redirect     = Column(Boolean, default=False)
 
-    user_id         = Column(Integer, ForeignKey("users.id"), nullable=False)
-    user            = relationship("User", back_populates="hooks", lazy="joined")
+#     user_id         = Column(Integer, ForeignKey("users.id"), nullable=False)
+#     user            = relationship("User", back_populates="hooks", lazy="joined")
 
-    expires_at      = Column(DateTime, default=lambda: datetime.now() + timedelta(days=1))
+#     expires_at      = Column(DateTime, default=lambda: datetime.now() + timedelta(days=1))
 
-    def __repr__(self):
-        return f"<Hook(id={self.id}, path={self.short_url}, url={self.url}, expire_at={self.expires_at})>"
+#     def __repr__(self):
+#         return f"<Hook(id={self.id}, path={self.short_url}, url={self.url}, expire_at={self.expires_at})>"
 
-class Event(Base):
-    __tablename__   = "events"
+# class Event(Base):
+#     __tablename__   = "events"
 
-    id              = Column(Integer, primary_key=True, index=True)
+#     id              = Column(Integer, primary_key=True, index=True)
 
 Base.metadata.create_all(engine)

@@ -1,12 +1,14 @@
 from discord.ext import commands
 from status import get_status
 from db import session
-from models import User, Hook
+from models import User #, Hook
 from urllib.parse import urljoin
 
 from hashlib import md5
 
+import requests
 import discord
+import json
 import jwt
 import sys
 import os
@@ -19,14 +21,14 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="/", intents=intents)
 tree = bot.tree
 
-def register_token(user = None, token = None, author = None):
+def register_token(user = None, token = None, author = None) -> bool:
     if token is None:
-        return
+        return False
     try:
         payload = jwt.decode(token, options={"verify_signature": False})
     except Exception as e:
         print(f"[+] Got error {e} while decoding JWT", file=sys.stderr)
-        return
+        return False
     login = payload.get("login")
 
     if user is None:
@@ -36,7 +38,7 @@ def register_token(user = None, token = None, author = None):
             user = session.query(User).filter_by(email=login).first()
 
     if user is None:
-        return
+        return False
 
     if login is not None:
         user.email = login
@@ -44,6 +46,7 @@ def register_token(user = None, token = None, author = None):
         user.discord_id = author
     user.token = token
     session.commit()
+    return True
 
 def register_ntfy(user):
     if user is None:
@@ -64,16 +67,50 @@ async def set_bot_presence():
         )
     )
 
-async def _send_dm(user_id: int, message: str):
+def build_embed(embed: dict):
+    output = discord.Embed(
+        title=embed.get("title"),
+        description=embed.get("description"),
+        color=embed.get("color"),
+    )
+    for field in embed.get("fields"):
+        output.add_field(
+            name=field.get("name"),
+            value=field.get("value"),
+            inline=field.get("inline") or False,
+        )
+    return output
+
+async def _send_dm(user_id: int, message: str, embed: discord.Embed):
     global bot
 
     user = bot.get_user(user_id)
-    print(user, file=sys.stderr)
-    await user.send(message)
+    await user.send(message, embed=embed)
 
-def send_dm(user_id: int, message: str):
+def send_dm(user_id: int, message: str, embed: dict = None):
     global bot
-    bot.loop.create_task(_send_dm(user_id, message))
+    try:
+        user = session.query(User).filter_by(id=user_id).first()
+        session.commit()
+    except:
+        session.rollback()
+        return
+    if user is None:
+        return
+    bot.loop.create_task(_send_dm(user.discord_id, message, build_embed(embed) if embed else None))
+    session.rollback()
+
+def send_ntfy(user_id: int, data: dict):
+    try:
+        user = session.query(User).filter_by(id=user_id).first()
+        session.commit()
+    except:
+        session.rollback()
+        return
+    if not user.ntfy_url:
+        return
+    url = urljoin(NTFY_URL, user.ntfy_url)
+    requests.post(url, data=json.dumps(data))
 
 def create_user_from_discord(discord_id: int):
     session.commit()
@@ -116,7 +153,9 @@ async def login(ctx: discord.Interaction, token: str = None):
         await ctx.response.send_message("Please paste your intranet token !\nSee <#1305141459267092554> for detailed instructions")
         return
     user = create_user_from_discord(ctx.user.id)
-    register_token(user, token, ctx.user.id)
+    if not register_token(user, token, ctx.user.id):
+        await ctx.response.send_message("Failed to register token !\nPlease correct the syntax, and login again !")
+        return
     await ctx.response.send_message("Token saved !\nYou will receive events in DM.", ephemeral=True)
 
 def run():
