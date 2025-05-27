@@ -1,0 +1,14 @@
+Get notified on intranet notifications.
+
+This tool let you link to the Epitech Intranet and retreive your callendar to discord, or callendars
+
+I don't have the heart to go back dive on how it work to make a clean doc right now, but feel free to contact me if you want to use this tool / want to continue developpement.
+
+It worked well as a PoC.
+
+Main keypoints were:
+- Discord integration: receive pings when activities start
+- Callendar support (through nylas): retreive your intra callendar to google agenda
+- ntfy integration: receive pop up notifications on events
+- all contained: everything runs within a singular docker compose
+- browser integration: one of the most anying part is that you must retreive your intra token, but this can be automatic using one of the web browser's extensions
